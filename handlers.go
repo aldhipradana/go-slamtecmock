@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 )
 
 // ---------------------------------------------------------------------------
@@ -30,103 +29,6 @@ func readBody(r *http.Request) []byte {
 	return b
 }
 
-func serveHTTP(addr string, handler http.Handler) error {
-	srv := &http.Server{Addr: addr, Handler: handler}
-	return srv.ListenAndServe()
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
-
-func (r *MockRobot) buildRouter() http.Handler {
-	mux := chi.NewRouter()
-	mux.Use(middleware.Recoverer)
-	mux.Use(corsMiddleware)
-
-	// 3.1 System Resources
-	mux.Get("/api/core/system/v1/power/status", r.handleGetPowerStatus)
-	mux.Get("/api/core/system/v1/network/status", r.handleGetNetworkStatus)
-	mux.Get("/api/core/system/v1/robot/info", r.handleGetRobotInfo)
-	mux.Get("/api/core/system/v1/robot/health", r.handleGetRobotHealth)
-	mux.Get("/api/core/system/v1/capabilities", r.handleGetCapabilities)
-	mux.Get("/api/core/system/v1/parameter", r.handleGetParameter)
-	mux.Put("/api/core/system/v1/parameter", r.handlePutParameter)
-	mux.Post("/api/core/system/v1/power/{cmd}", r.handlePowerCmd)
-	mux.Get("/api/core/system/v1/jack/status", r.handleGetJackStatus)
-	mux.Post("/api/core/system/v1/jack/status", r.handlePostJackStatus)
-
-	// 3.2 SLAM
-	mux.Get("/api/core/slam/v1/localization/pose", r.handleGetPose)
-	mux.Get("/api/core/slam/v1/homepose", r.handleGetHomePose)
-	mux.Put("/api/core/slam/v1/homepose", r.handlePutHomePose)
-	mux.Put("/api/multi-floor/localization/v1/pose", r.handlePutPose)
-	mux.Get("/api/core/slam/v1/maps/explore", r.handleGetMapExplore)
-	mux.Get("/api/core/slam/v1/maps/stcm", r.handleGetMapStcm)
-	mux.Put("/api/core/slam/v1/mapping/{enable}", r.handlePutMapping)
-
-	// 3.3 Artifacts – POIs
-	mux.Get("/api/core/artifact/v1/pois", r.handleGetArtifactPois)
-	mux.Post("/api/core/artifact/v1/pois", r.handlePostArtifactPoi)
-	mux.Delete("/api/core/artifact/v1/pois/{id}", r.handleDeleteArtifactPoi)
-
-	// 3.4 Motion – actions
-	mux.Get("/api/core/motion/v1/action-factories", r.handleGetActionFactories)
-	mux.Get("/api/core/motion/v1/strategies", r.handleGetStrategies)
-	mux.Get("/api/core/motion/v1/strategies/{id}", r.handleGetCurrentStrategy)
-	mux.Put("/api/core/motion/v1/strategies/{id}", r.handlePutStrategy)
-	mux.Post("/api/core/slam/v1/action/create", r.handleCreateAction)
-	mux.Post("/api/core/motion/v1/actions", r.handleCreateAction)
-	mux.Get("/api/core/motion/v1/actions/{actionId}", r.handleGetAction)
-	mux.Delete("/api/core/motion/v1/actions/{actionId}", r.handleDeleteAction)
-
-	// 3.9 Multi-floor
-	mux.Post("/api/multi-floor/motion/v1/movetoaction", r.handleCreateAction)
-	mux.Get("/api/multi-floor/map/v1/floors", r.handleGetFloors)
-	mux.Get("/api/multi-floor/map/v1/floors/{floorId}", r.handleGetCurrentFloor)
-	mux.Put("/api/multi-floor/map/v1/floors/{floorId}", r.handlePutFloor)
-	mux.Get("/api/multi-floor/map/v1/pois", r.handleGetMultiFloorPois)
-	mux.Get("/api/multi-floor/map/v1/elevators/{elevatorId}", r.handleGetElevator)
-
-	// 3.8 Platform – events
-	mux.Get("/api/platform/v1/events", r.handleGetEvents)
-
-	// 3.10 Delivery
-	mux.Get("/api/delivery/v1/stage", r.handleGetDeliveryStage)
-	mux.Get("/api/delivery/v1/settings", r.handleGetDeliverySettings)
-	mux.Put("/api/delivery/v1/settings/timeout", r.handlePutDeliveryTimeout)
-	mux.Put("/api/delivery/v1/tasks/{cmd}", r.handlePutDeliveryTask)
-	mux.Get("/api/delivery/v1/cargos", r.handleGetCargos)
-	mux.Put("/api/delivery/v1/cargos/{cargo_id}/boxes/{box_id}/{op}", r.handlePutCargoBoxOp)
-	mux.Get("/api/delivery/v1/cargos/{cargo_id}/boxes/{box_id}/operation_result", r.handleGetCargoOpResult)
-
-	// External sensors
-	mux.Get("/front_cam", r.handleFrontCam)
-	mux.Get("/back_cam", r.handleBackCam)
-	mux.Get("/cliff_safe", r.handleCliffSafe)
-	mux.Get("/sensor/status", r.handleSensorStatus)
-	mux.Post("/sensor/lidar/on", r.handleLidarOn)
-	mux.Post("/sensor/lidar/off", r.handleLidarOff)
-	mux.Post("/sensor/front_cam/on", r.handleFrontCamOn)
-	mux.Post("/sensor/front_cam/off", r.handleFrontCamOff)
-	mux.Post("/sensor/back_cam/on", r.handleBackCamOn)
-	mux.Post("/sensor/back_cam/off", r.handleBackCamOff)
-
-	return mux
-}
-
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		if req.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(w, req)
-	})
-}
 
 // ---------------------------------------------------------------------------
 // 3.1 System Resources handlers

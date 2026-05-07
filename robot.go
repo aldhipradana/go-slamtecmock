@@ -34,33 +34,32 @@ var jackStepPerTick = (jackPosUp - jackPosDown) * tickMS / 3000
 // MockRobot
 // ---------------------------------------------------------------------------
 
+const (
+	tickActive = time.Duration(tickMS) * time.Millisecond // 5 ms  — moving / jack animating
+	tickIdle   = 200 * time.Millisecond                   // 200 ms — stationary
+)
+
 type MockRobot struct {
-	state            *RobotState
-	actionIDCounter  atomic.Int32
-	batteryAccum     float32
-	stopCh           chan struct{}
+	ID              int
+	state           *RobotState
+	actionIDCounter atomic.Int32
+	batteryAccum    float32
+	stopCh          chan struct{}
 }
 
-func NewMockRobot(port int, state *RobotState) *MockRobot {
+// newRobot creates and starts the simulation goroutine for a single robot.
+// HTTP routing is handled by RobotManager — not started here.
+func newRobot(id int, state *RobotState) *MockRobot {
 	r := &MockRobot{
+		ID:           id,
 		state:        state,
 		batteryAccum: float32(state.Battery.BatteryPercentage),
 		stopCh:       make(chan struct{}),
 	}
 	r.actionIDCounter.Store(1)
-
-	router := r.buildRouter()
-
-	log.Printf("MockRobot starting on port %d — initial pose (%.2f, %.2f), battery %d%%",
-		port, state.Pose.X, state.Pose.Y, state.Battery.BatteryPercentage)
-
 	go r.startSimulationLoop()
-	go func() {
-		addr := fmt.Sprintf(":%d", port)
-		if err := serveHTTP(addr, router); err != nil {
-			log.Fatalf("HTTP server error: %v", err)
-		}
-	}()
+	log.Printf("Robot #%d started — pose (%.2f, %.2f) battery %d%%",
+		id, state.Pose.X, state.Pose.Y, state.Battery.BatteryPercentage)
 	return r
 }
 
@@ -68,12 +67,24 @@ func (r *MockRobot) Stop() {
 	close(r.stopCh)
 }
 
+// isActive returns true when the robot needs high-frequency ticks.
+// Called without the state lock — reads are benign race on bool/int fields.
+func (r *MockRobot) isActive() bool {
+	s := r.state
+	s.mu.RLock()
+	active := (s.CurrentAction != nil && s.CurrentAction.State.Status == StatusRunning) ||
+		s.JackCommand != ""
+	s.mu.RUnlock()
+	return active
+}
+
 // ---------------------------------------------------------------------------
-// Simulation loop
+// Simulation loop — adaptive tick rate
 // ---------------------------------------------------------------------------
 
 func (r *MockRobot) startSimulationLoop() {
-	ticker := time.NewTicker(tickMS * time.Millisecond)
+	interval := tickIdle
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -81,6 +92,15 @@ func (r *MockRobot) startSimulationLoop() {
 			return
 		case <-ticker.C:
 			r.tick()
+			// Switch interval based on activity
+			desired := tickIdle
+			if r.isActive() {
+				desired = tickActive
+			}
+			if desired != interval {
+				interval = desired
+				ticker.Reset(interval)
+			}
 		}
 	}
 }

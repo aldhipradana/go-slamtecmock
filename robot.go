@@ -263,6 +263,7 @@ func (r *MockRobot) tickBattery() {
 	s := r.state
 	tickSec := float32(tickMS) / 1000.0
 	moving := s.CurrentAction != nil && s.CurrentAction.State.Status == StatusRunning
+	wasBatteryCritical := r.batteryAccum <= batteryCritical
 
 	if s.Battery.DockingStatus == "on_dock" && s.Battery.IsCharging {
 		r.batteryAccum += batteryChargePerSec * tickSec
@@ -275,9 +276,7 @@ func (r *MockRobot) tickBattery() {
 			r.batteryAccum = 0
 		}
 
-		if r.batteryAccum <= batteryCritical && !s.Health.HasSystemEmergencyStop {
-			s.Health.HasSystemEmergencyStop = true
-			s.Health.HasError = true
+		if r.batteryAccum <= batteryCritical && !wasBatteryCritical {
 			r.addEvent("system.critical_low_battery", "Battery critically low – emergency stop triggered")
 			log.Printf("MockRobot: critical low battery – emergency stop")
 		} else if r.batteryAccum <= batteryLowThreshold {
@@ -289,6 +288,7 @@ func (r *MockRobot) tickBattery() {
 		}
 	}
 	s.Battery.BatteryPercentage = int(r.batteryAccum)
+	r.recomputeEmergencyStopLocked()
 }
 
 func (r *MockRobot) tickJack() {
@@ -353,6 +353,83 @@ func (r *MockRobot) addEvent(typ, message string) {
 	if len(r.state.Events) > 50 {
 		r.state.Events = r.state.Events[:50]
 	}
+}
+
+func (r *MockRobot) abortCurrentActionLocked(eventType, message string) {
+	if r.state.CurrentAction != nil && r.state.CurrentAction.State.Status == StatusRunning {
+		r.state.CurrentAction.State.Status = StatusDone
+		r.state.CurrentAction.State.Result = ResultAborted
+		r.state.CurrentAction.Stage = "ABORTED"
+		r.state.MovementTarget = nil
+		r.state.DockingPhase = nil
+		r.state.GoingHome = false
+		if eventType != "" && message != "" {
+			r.addEvent(eventType, message)
+		}
+	}
+}
+
+func (r *MockRobot) recomputeEmergencyStopLocked() {
+	batteryCriticalActive := r.batteryAccum <= batteryCritical || float32(r.state.Battery.BatteryPercentage) <= batteryCritical
+	hasEmergencyStop := r.state.SoftBrakeActive || r.state.PhysicalEStopActive || batteryCriticalActive
+	r.state.Health.HasSystemEmergencyStop = hasEmergencyStop
+	r.state.Health.HasError = hasEmergencyStop
+	if !r.state.CliffSafe {
+		r.state.Health.HasWarning = true
+	} else if !hasEmergencyStop {
+		r.state.Health.HasWarning = false
+	}
+}
+
+func (r *MockRobot) setSoftBrakeLocked(active bool, source string) {
+	if r.state.SoftBrakeActive == active {
+		return
+	}
+
+	r.state.SoftBrakeActive = active
+	if active {
+		r.abortCurrentActionLocked("system.emergency_stop", "Current action aborted due to soft-brake activation")
+		r.addEvent("system.emergency_stop", "Soft-brake activated via "+source)
+		log.Printf("MockRobot: soft-brake ACTIVATED via %s", source)
+	} else {
+		r.addEvent("system.emergency_stop_released", "Soft-brake released via "+source)
+		log.Printf("MockRobot: soft-brake RELEASED via %s", source)
+	}
+	r.recomputeEmergencyStopLocked()
+}
+
+func (r *MockRobot) setPhysicalEStopLocked(active bool, source string) {
+	if r.state.PhysicalEStopActive == active {
+		return
+	}
+
+	r.state.PhysicalEStopActive = active
+	if active {
+		r.abortCurrentActionLocked("system.physical_estop_action_aborted", "Current action aborted due to physical e-stop")
+		r.addEvent("system.physical_estop", "Physical e-stop pressed via "+source)
+		log.Printf("MockRobot: physical e-stop ACTIVATED via %s", source)
+	} else {
+		r.addEvent("system.physical_estop_released", "Physical e-stop released via "+source)
+		log.Printf("MockRobot: physical e-stop RELEASED via %s", source)
+	}
+	r.recomputeEmergencyStopLocked()
+}
+
+func (r *MockRobot) setCliffSafeLocked(safe bool, source string) {
+	if r.state.CliffSafe == safe {
+		return
+	}
+
+	r.state.CliffSafe = safe
+	r.state.Health.HasWarning = !safe || r.state.Health.HasWarning
+	if safe {
+		r.addEvent("sensor.cliff_safe", "Cliff sensor returned SAFE via "+source)
+		log.Printf("MockRobot: cliff SAFE via %s", source)
+	} else {
+		r.addEvent("sensor.cliff_unsafe", "Cliff sensor reported UNSAFE via "+source)
+		log.Printf("MockRobot: cliff UNSAFE via %s", source)
+	}
+	r.recomputeEmergencyStopLocked()
 }
 
 // ---------------------------------------------------------------------------

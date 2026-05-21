@@ -44,6 +44,13 @@ func (r *MockRobot) buildRouter() http.Handler {
 	mux.Use(middleware.Recoverer)
 	mux.Use(corsMiddleware)
 
+	mux.Get("/", r.handleUIRedirect)
+	mux.Get("/ui", r.handleUIDashboard)
+	mux.Get("/ui/partials/summary", r.handleUISummary)
+	mux.Get("/ui/partials/events", r.handleUIEvents)
+	mux.Post("/ui/actions/cliff/{mode}", r.handleUISetCliff)
+	mux.Post("/ui/actions/physical-estop/{mode}", r.handleUISetPhysicalEStop)
+
 	// 3.1 System Resources
 	mux.Get("/api/core/system/v1/power/status", r.handleGetPowerStatus)
 	mux.Get("/api/core/system/v1/network/status", r.handleGetNetworkStatus)
@@ -213,27 +220,7 @@ func (r *MockRobot) handlePutParameter(w http.ResponseWriter, req *http.Request)
 			r.state.SystemParameters[param] = value
 
 			if param == "base.emergency_stop" {
-				if strings.EqualFold(value, "on") {
-					r.state.SoftBrakeActive = true
-					r.state.Health.HasSystemEmergencyStop = true
-					r.state.Health.HasError = true
-					if r.state.CurrentAction != nil && r.state.CurrentAction.State.Status == StatusRunning {
-						r.state.CurrentAction.State.Status = StatusDone
-						r.state.CurrentAction.State.Result = ResultAborted
-						r.state.CurrentAction.Stage = "ABORTED"
-						r.state.MovementTarget = nil
-					}
-					r.addEvent("system.emergency_stop", "Soft-brake activated via parameter API")
-					log.Printf("MockRobot: soft-brake ACTIVATED")
-				} else if strings.EqualFold(value, "off") {
-					r.state.SoftBrakeActive = false
-					if r.batteryAccum > batteryCritical {
-						r.state.Health.HasSystemEmergencyStop = false
-						r.state.Health.HasError = false
-					}
-					r.addEvent("system.emergency_stop_released", "Soft-brake released via parameter API")
-					log.Printf("MockRobot: soft-brake RELEASED (battery=%d%%)", int(r.batteryAccum))
-				}
+				r.setSoftBrakeLocked(strings.EqualFold(value, "on"), "parameter API")
 			}
 
 			if param == "base.brake_release" {
@@ -490,13 +477,7 @@ func (r *MockRobot) handleGetAction(w http.ResponseWriter, req *http.Request) {
 func (r *MockRobot) handleDeleteAction(w http.ResponseWriter, req *http.Request) {
 	log.Printf("MockRobot: abort action requested")
 	r.state.mu.Lock()
-	if r.state.CurrentAction != nil && r.state.CurrentAction.State.Status == StatusRunning {
-		r.state.CurrentAction.State.Status = StatusDone
-		r.state.CurrentAction.State.Result = ResultAborted
-		r.state.CurrentAction.Stage = "ABORTED"
-		r.state.MovementTarget = nil
-		r.addEvent("navigation.aborted", "Current action aborted by caller")
-	}
+	r.abortCurrentActionLocked("navigation.aborted", "Current action aborted by caller")
 	r.state.mu.Unlock()
 	w.WriteHeader(http.StatusOK)
 }

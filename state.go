@@ -312,7 +312,8 @@ type RobotState struct {
 	Cargos               []Cargo
 
 	// soft brake
-	SoftBrakeActive bool
+	SoftBrakeActive     bool
+	PhysicalEStopActive bool
 
 	// jack (lift) state
 	JackActualPos int

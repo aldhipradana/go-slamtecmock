@@ -16,13 +16,14 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	defaultPort         = 1448
-	defaultSpeedMPS     = float32(15.0) // metres per second
-	tickMS              = 5             // milliseconds per tick
-	batteryDrainPerSec  = float32(0.05)
-	batteryChargePerSec = float32(0.5)
-	batteryLowThreshold = float32(15.0)
-	batteryCritical     = float32(5.0)
+	defaultPort          = 1448
+	defaultSpeedMPS      = float32(15.0) // metres per second
+	tickMS               = 5             // milliseconds per tick
+	batteryDrainPerSec   = float32(0.05)
+	batteryChargePerSec  = float32(0.5)
+	batteryLowThreshold  = float32(15.0)
+	batteryCritical      = float32(5.0)
+	cameraQrDetectRadius = float32(45.0)
 
 	jackPosUp   = 26000001
 	jackPosDown = 31
@@ -35,10 +36,10 @@ var jackStepPerTick = (jackPosUp - jackPosDown) * tickMS / 3000
 // ---------------------------------------------------------------------------
 
 type MockRobot struct {
-	state            *RobotState
-	actionIDCounter  atomic.Int32
-	batteryAccum     float32
-	stopCh           chan struct{}
+	state           *RobotState
+	actionIDCounter atomic.Int32
+	batteryAccum    float32
+	stopCh          chan struct{}
 }
 
 func NewMockRobot(port int, state *RobotState) *MockRobot {
@@ -404,6 +405,64 @@ func (r *MockRobot) findPoiByName(name string) *MultiFloorPoi {
 	return nil
 }
 
+func (r *MockRobot) currentVisibleFrontQrLocked() string {
+	if !r.state.FrontCamOn {
+		return ""
+	}
+	if r.state.FrontCamQrID != "" {
+		return r.state.FrontCamQrID
+	}
+	return r.currentVisibleQrByPoseLocked()
+}
+
+func (r *MockRobot) currentVisibleBackQrLocked() string {
+	if !r.state.BackCamOn {
+		return ""
+	}
+	if r.state.BackCamQrID != "" {
+		return r.state.BackCamQrID
+	}
+	return ""
+}
+
+func (r *MockRobot) currentVisibleQrByPoseLocked() string {
+	currentBuilding := r.state.CurrentFloor.Building
+	currentFloor := r.state.CurrentFloor.FloorID
+	bestDistance := float32(math.MaxFloat32)
+	bestQr := ""
+
+	for _, poi := range r.state.MultiFloorPois {
+		if !isCameraVisiblePoiType(poi.Type) {
+			continue
+		}
+		if currentBuilding != "" && poi.Building != currentBuilding {
+			continue
+		}
+		if currentFloor != "" && poi.Floor != currentFloor {
+			continue
+		}
+
+		dx := poi.Pose.X - r.state.Pose.X
+		dy := poi.Pose.Y - r.state.Pose.Y
+		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
+		if distance <= cameraQrDetectRadius && distance < bestDistance {
+			bestDistance = distance
+			bestQr = poi.ID
+		}
+	}
+
+	return bestQr
+}
+
+func isCameraVisiblePoiType(poiType string) bool {
+	switch poiType {
+	case "TROLLEY_POINT", "AV_LOADING_POINT", "LIFT_TROLLEY_POINT":
+		return true
+	default:
+		return false
+	}
+}
+
 func (r *MockRobot) applyGoHome(info *ActionInfo) {
 	s := r.state
 	var target *Pose
@@ -605,17 +664,17 @@ func (r *MockRobot) createActionFromBody(body []byte) *ActionInfo {
 		}
 
 		r.state.DockingPhase = &DockingPhaseState{
-			Phase:          DockingApproach,
-			ApproachX:      approachX,
-			ApproachY:      approachY,
-			TagX:           approachX,
-			TagY:           approachY,
-			TagYaw:         approachYaw,
+			Phase:           DockingApproach,
+			ApproachX:       approachX,
+			ApproachY:       approachY,
+			TagX:            approachX,
+			TagY:            approachY,
+			TagYaw:          approachYaw,
 			BackwardDocking: backwardDocking,
-			DockAllowance:  dockAllowance,
-			TagIDs:         tagIDs,
-			TagType:        tagType,
-			ReflectTagNum:  reflectTagNum,
+			DockAllowance:   dockAllowance,
+			TagIDs:          tagIDs,
+			TagType:         tagType,
+			ReflectTagNum:   reflectTagNum,
 		}
 		info.Stage = "DOCKING_APPROACH"
 		r.state.MovementTarget = &MovementTarget{X: approachX, Y: approachY, Yaw: approachYaw, YawSet: true}
@@ -691,5 +750,3 @@ func putFloat32LE(b []byte, f float32) {
 	bits := math.Float32bits(f)
 	binary.LittleEndian.PutUint32(b, bits)
 }
-
-

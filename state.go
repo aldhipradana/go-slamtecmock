@@ -36,17 +36,17 @@ const (
 )
 
 type DockingPhaseState struct {
-	Phase          DockingPhaseEnum
-	ApproachX      float32
-	ApproachY      float32
-	TagX           float32
-	TagY           float32
-	TagYaw         float32
+	Phase           DockingPhaseEnum
+	ApproachX       float32
+	ApproachY       float32
+	TagX            float32
+	TagY            float32
+	TagYaw          float32
 	BackwardDocking bool
-	DockAllowance  float32
-	TagIDs         []int
-	TagType        int
-	ReflectTagNum  int
+	DockAllowance   float32
+	TagIDs          []int
+	TagType         int
+	ReflectTagNum   int
 }
 
 type PowerStatus struct {
@@ -54,7 +54,7 @@ type PowerStatus struct {
 	IsCharging        bool   `json:"isCharging"`
 	IsDCConnected     bool   `json:"isDCConnected"`
 	DockingStatus     string `json:"dockingStatus"` // "on_dock" | "not_on_dock" | "docking"
-	PowerStage        string `json:"powerStage"`     // "running" | "sleeping"
+	PowerStage        string `json:"powerStage"`    // "running" | "sleeping"
 	SleepMode         string `json:"sleepMode"`
 }
 
@@ -174,21 +174,21 @@ type ArtifactPoi struct {
 }
 
 type MultiFloorPoi struct {
-	ID          string  `json:"id"`
-	PoiName     string  `json:"poi_name"`
-	DisplayName string  `json:"display_name"`
-	Type        string  `json:"type"`
-	Building    string  `json:"building"`
-	Floor       string  `json:"floor"`
-	Group       string  `json:"group,omitempty"`
-	Pose        Pose    `json:"pose"`
+	ID          string `json:"id"`
+	PoiName     string `json:"poi_name"`
+	DisplayName string `json:"display_name"`
+	Type        string `json:"type"`
+	Building    string `json:"building"`
+	Floor       string `json:"floor"`
+	Group       string `json:"group,omitempty"`
+	Pose        Pose   `json:"pose"`
 }
 
 type Elevator struct {
-	ElevatorID           string  `json:"elevator_id"`
-	DoorType             string  `json:"door_type"`
-	FrontSchedulingPoses []Pose  `json:"front_scheduling_poses"`
-	Optional             bool    `json:"optional"`
+	ElevatorID           string `json:"elevator_id"`
+	DoorType             string `json:"door_type"`
+	FrontSchedulingPoses []Pose `json:"front_scheduling_poses"`
+	Optional             bool   `json:"optional"`
 }
 
 type MotionStrategy struct {
@@ -211,17 +211,17 @@ type CargoBox struct {
 }
 
 type Cargo struct {
-	ID          string      `json:"id"`
-	Orientation string      `json:"orientation"`
-	Type        string      `json:"type"`
-	Boxes       []CargoBox  `json:"boxes"`
+	ID          string     `json:"id"`
+	Orientation string     `json:"orientation"`
+	Type        string     `json:"type"`
+	Boxes       []CargoBox `json:"boxes"`
 }
 
 type CargoOperationStatus struct {
-	Type    string     `json:"type"`
-	Stage   string     `json:"stage"`
-	CargoID string     `json:"cargo_id"`
-	Box     *CargoBox  `json:"box,omitempty"`
+	Type    string    `json:"type"`
+	Stage   string    `json:"stage"`
+	CargoID string    `json:"cargo_id"`
+	Box     *CargoBox `json:"box,omitempty"`
 }
 
 type JackStatus struct {
@@ -239,10 +239,10 @@ type RobotState struct {
 	mu sync.RWMutex
 
 	// sensor state
-	LidarOn    bool
-	FrontCamOn bool
-	BackCamOn  bool
-	CliffSafe  bool
+	LidarOn      bool
+	FrontCamOn   bool
+	BackCamOn    bool
+	CliffSafe    bool
 	FrontCamQrID string
 	BackCamQrID  string
 
@@ -327,15 +327,15 @@ type RobotState struct {
 
 func defaultRobotState() *RobotState {
 	s := &RobotState{
-		CliffSafe:            true,
-		Pose:                 newPose(1.0, 2.0, 0.0),
-		DockPose:             posePtr(0, 0, 0),
-		HomePose:             posePtr(564, 406, 0),
-		Battery:              defaultPowerStatus(),
-		Network:              defaultNetworkStatus(),
-		RobotInfo:            defaultRobotInfo(),
-		Health:               RobotHealth{BaseError: []HealthError{}},
-		MapMeta:              defaultMapMeta(),
+		CliffSafe: true,
+		Pose:      newPose(1.0, 2.0, 0.0),
+		DockPose:  posePtr(0, 0, 0),
+		HomePose:  posePtr(564, 406, 0),
+		Battery:   defaultPowerStatus(),
+		Network:   defaultNetworkStatus(),
+		RobotInfo: defaultRobotInfo(),
+		Health:    RobotHealth{BaseError: []HealthError{}},
+		MapMeta:   defaultMapMeta(),
 		SystemParameters: map[string]string{
 			"max_speed":          "0.8",
 			"min_speed":          "0.1",
@@ -424,51 +424,82 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("KITCHEN_HOME_1", "Kitchen Home", "INTERSECTION", "Kitchen", "1", 457, 282, 0),
 		makeMFPoi("KITCHEN_HOME_2", "Kitchen Home 2", "INTERSECTION", "Kitchen", "1", 459, 222, 0),
 		makeMFPoi("KITCHEN_VEHICLE_PORT_1", "Kitchen Vehicle Port 1", "INTERSECTION", "Kitchen", "1", 441, 199, 0),
+		makeMFPoi("KITCHEN_LOADING_1_APPROACH", "Front of Kitchen Loading 1", "INTERSECTION", "Kitchen", "1", 505, 279, 0),
 		makeMFPoi("KITCHEN_LOADING_1", "Kitchen Loading 1", "TROLLEY_POINT", "Kitchen", "1", 533, 277, 0),
+		makeMFPoi("KITCHEN_LOADING_2_APPROACH", "Front of Kitchen Loading 2", "INTERSECTION", "Kitchen", "1", 414, 280, 0),
 		makeMFPoi("KITCHEN_LOADING_2", "Kitchen Loading 2", "TROLLEY_POINT", "Kitchen", "1", 386, 278, 0),
+		makeMFPoi("KITCHEN_LOADING_3_APPROACH", "Front of Kitchen Loading 3", "INTERSECTION", "Kitchen", "1", 416, 222, 0),
 		makeMFPoi("KITCHEN_LOADING_3", "Kitchen Loading 3", "TROLLEY_POINT", "Kitchen", "1", 388, 222, 0),
+		makeMFPoi("KITCHEN_LOADING_4_APPROACH", "Front of Kitchen Loading 4", "INTERSECTION", "Kitchen", "1", 506, 220, 0),
 		makeMFPoi("KITCHEN_LOADING_4", "Kitchen Loading 4", "TROLLEY_POINT", "Kitchen", "1", 534, 218, 0),
+		makeMFPoi("KITCHEN_VEHICLE_1_APPROACH", "Front of Kitchen Vehicle 1", "INTERSECTION", "Kitchen", "1", 442, 50, 0),
 		makeMFPoi("KITCHEN_VEHICLE_1", "Kitchen Vehicle 1", "AV_LOADING_POINT", "Kitchen", "1", 442, 32, 0),
+		makeMFPoi("KITCHEN_VEHICLE_2_APPROACH", "Front of Kitchen Vehicle 2", "INTERSECTION", "Kitchen", "1", 442, 90, 0),
 		makeMFPoi("KITCHEN_VEHICLE_2", "Kitchen Vehicle 2", "AV_LOADING_POINT", "Kitchen", "1", 442, 73, 0),
+		makeMFPoi("KITCHEN_VEHICLE_3_APPROACH", "Front of Kitchen Vehicle 3", "INTERSECTION", "Kitchen", "1", 440, 130, 0),
 		makeMFPoi("KITCHEN_VEHICLE_3", "Kitchen Vehicle 3", "AV_LOADING_POINT", "Kitchen", "1", 440, 113, 0),
+		makeMFPoi("KITCHEN_VEHICLE_4_APPROACH", "Front of Kitchen Vehicle 4", "INTERSECTION", "Kitchen", "1", 440, 180, 0),
 		makeMFPoi("KITCHEN_VEHICLE_4", "Kitchen Vehicle 4", "AV_LOADING_POINT", "Kitchen", "1", 439, 163, 0),
 		makeMFPoi("KITCHEN_CHARGING_DOCK_POINT", "Kitchen Charging Dock", "CHARGER_DOCK_POINT", "Kitchen", "1", 564, 406, 0),
+		makeMFPoi("KITCHEN_EMERGENCY_POINT", "Kitchen Emergency Point", "EMERGENCY_POINT", "Kitchen", "1", 300, 350, 0),
 		// Institution Ground
 		makeMFPoi("INSTITUTION_GROUND_HOME", "Ground Home", "CHARGER_DOCK_POINT", "Institution", "1", 507, 361, 0),
+		makeMFPoi("INSTITUTION_GROUND_LOADING_1_APPROACH", "Front of Ground Loading 1", "INTERSECTION", "Institution", "1", 726, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_1", "Ground Loading 1", "TROLLEY_POINT", "Institution", "1", 726, 122, 0),
+		makeMFPoi("INSTITUTION_GROUND_LOADING_2_APPROACH", "Front of Ground Loading 2", "INTERSECTION", "Institution", "1", 633, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_2", "Ground Loading 2", "TROLLEY_POINT", "Institution", "1", 633, 122, 0),
+		makeMFPoi("INSTITUTION_GROUND_LOADING_3_APPROACH", "Front of Ground Loading 3", "INTERSECTION", "Institution", "1", 543, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_3", "Ground Loading 3", "TROLLEY_POINT", "Institution", "1", 543, 122, 0),
+		makeMFPoi("INSTITUTION_GROUND_LOADING_4_APPROACH", "Front of Ground Loading 4", "INTERSECTION", "Institution", "1", 459, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_4", "Ground Loading 4", "TROLLEY_POINT", "Institution", "1", 459, 122, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_1", "Port Ground Loading 1", "INTERSECTION", "Institution", "1", 726, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_2", "Port Ground Loading 2", "INTERSECTION", "Institution", "1", 632, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_3", "Port Ground Loading 3", "INTERSECTION", "Institution", "1", 543, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_4", "Port Ground Loading 4", "INTERSECTION", "Institution", "1", 459, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_VEHICLE_1", "Port Ground Vehicle 1", "INTERSECTION", "Institution", "1", 682, 187, 0),
+		makeMFPoi("INSTITUTION_GROUND_VEHICLE_1_APPROACH", "Front of Ground Vehicle 1", "INTERSECTION", "Institution", "1", 682, 397, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_1", "Ground Vehicle 1", "AV_LOADING_POINT", "Institution", "1", 682, 421, 0),
+		makeMFPoi("INSTITUTION_GROUND_VEHICLE_2_APPROACH", "Front of Ground Vehicle 2", "INTERSECTION", "Institution", "1", 682, 337, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_2", "Ground Vehicle 2", "AV_LOADING_POINT", "Institution", "1", 682, 361, 0),
+		makeMFPoi("INSTITUTION_GROUND_VEHICLE_3_APPROACH", "Front of Ground Vehicle 3", "INTERSECTION", "Institution", "1", 682, 277, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_3", "Ground Vehicle 3", "AV_LOADING_POINT", "Institution", "1", 682, 301, 0),
+		makeMFPoi("INSTITUTION_GROUND_VEHICLE_4_APPROACH", "Front of Ground Vehicle 4", "INTERSECTION", "Institution", "1", 682, 218, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_4", "Ground Vehicle 4", "AV_LOADING_POINT", "Institution", "1", 682, 242, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_1_APPROACH", "Front of Ground Lift 1", "INTERSECTION", "Institution", "1", 256, 181, 0),
 		makeMFPoi("INSTITUTION_GROUND_LIFT_1", "Ground Lift 1", "LIFT_TROLLEY_POINT", "Institution", "1", 260, 149, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_2_APPROACH", "Front of Ground Lift 2", "INTERSECTION", "Institution", "1", 211, 183, 0),
 		makeMFPoi("INSTITUTION_GROUND_LIFT_2", "Ground Lift 2", "LIFT_TROLLEY_POINT", "Institution", "1", 207, 151, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_3_APPROACH", "Front of Ground Lift 3", "INTERSECTION", "Institution", "1", 256, 242, 0),
 		makeMFPoi("INSTITUTION_GROUND_LIFT_3", "Ground Lift 3", "LIFT_TROLLEY_POINT", "Institution", "1", 263, 211, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_4_APPROACH", "Front of Ground Lift 4", "INTERSECTION", "Institution", "1", 215, 247, 0),
 		makeMFPoi("INSTITUTION_GROUND_LIFT_4", "Ground Lift 4", "LIFT_TROLLEY_POINT", "Institution", "1", 211, 215, 0),
 		makeMFPoi("CARGO_LIFT_ENTRY_GROUND", "Cargo Lift Entry Ground", "LIFT_WAITING_POINT", "Institution", "1", 231, 361, 0),
+		makeMFPoi("GROUND_EMERGENCY_POINT", "Ground Emergency Point", "EMERGENCY_POINT", "Institution", "1", 400, 300, 0),
 		// Institution Level 5
+		makeMFPoi("INSTITUTION_TOP_LOADING_1_APPROACH", "Front of Top Loading 1", "INTERSECTION", "Institution", "5", 1107, 185, 0),
 		makeMFPoi("INSTITUTION_TOP_LOADING_1", "Top Loading 1", "TROLLEY_POINT", "Institution", "5", 1107, 129, 0),
+		makeMFPoi("INSTITUTION_TOP_LOADING_2_APPROACH", "Front of Top Loading 2", "INTERSECTION", "Institution", "5", 937, 185, 0),
 		makeMFPoi("INSTITUTION_TOP_LOADING_2", "Top Loading 2", "TROLLEY_POINT", "Institution", "5", 937, 129, 0),
+		makeMFPoi("INSTITUTION_TOP_LOADING_3_APPROACH", "Front of Top Loading 3", "INTERSECTION", "Institution", "5", 753, 185, 0),
 		makeMFPoi("INSTITUTION_TOP_LOADING_3", "Top Loading 3", "TROLLEY_POINT", "Institution", "5", 753, 126, 0),
+		makeMFPoi("INSTITUTION_TOP_LOADING_4_APPROACH", "Front of Top Loading 4", "INTERSECTION", "Institution", "5", 564, 185, 0),
 		makeMFPoi("INSTITUTION_TOP_LOADING_4", "Top Loading 4", "TROLLEY_POINT", "Institution", "5", 564, 128, 0),
 		makeMFPoi("PORT_INSTITUTION_TOP_LOADING_1", "Port Top Loading 1", "INTERSECTION", "Institution", "5", 1107, 255, 0),
 		makeMFPoi("PORT_INSTITUTION_TOP_LOADING_2", "Port Top Loading 2", "INTERSECTION", "Institution", "5", 937, 255, 0),
 		makeMFPoi("PORT_INSTITUTION_TOP_LOADING_3", "Port Top Loading 3", "INTERSECTION", "Institution", "5", 753, 255, 0),
 		makeMFPoi("PORT_INSTITUTION_TOP_LOADING_4", "Port Top Loading 4", "INTERSECTION", "Institution", "5", 564, 255, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_1_APPROACH", "Front of Top Lift 1", "INTERSECTION", "Institution", "5", 580, 536, 0),
 		makeMFPoi("INSTITUTION_TOP_LIFT_1", "Top Lift 1", "LIFT_TROLLEY_POINT", "Institution", "5", 593, 590, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_2_APPROACH", "Front of Top Lift 2", "INTERSECTION", "Institution", "5", 473, 543, 0),
 		makeMFPoi("INSTITUTION_TOP_LIFT_2", "Top Lift 2", "LIFT_TROLLEY_POINT", "Institution", "5", 461, 598, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_3_APPROACH", "Front of Top Lift 3", "INTERSECTION", "Institution", "5", 559, 362, 0),
 		makeMFPoi("INSTITUTION_TOP_LIFT_3", "Top Lift 3", "LIFT_TROLLEY_POINT", "Institution", "5", 589, 409, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_4_APPROACH", "Front of Top Lift 4", "INTERSECTION", "Institution", "5", 494, 363, 0),
 		makeMFPoi("INSTITUTION_TOP_LIFT_4", "Top Lift 4", "LIFT_TROLLEY_POINT", "Institution", "5", 466, 412, 0),
 		makeMFPoi("CARGO_LIFT_EXIT_LEVEL5", "Cargo Lift Exit Level 5", "LIFT_WAITING_POINT", "Institution", "5", 525, 308, 0),
 		makeMFPoi("DESTINATION_AREA", "Destination Area", "INTERSECTION", "Institution", "5", 390, 259, 0),
 		makeMFPoi("LEVEL5_CHARGER", "Level 5 Robot Charger", "CHARGER_DOCK_POINT", "Institution", "5", 421, 38, 0),
+		makeMFPoi("LEVEL5_EMERGENCY_POINT", "Level 5 Emergency Point", "EMERGENCY_POINT", "Institution", "5", 700, 400, 0),
 		// AV Map
 		makeMFPoi("AV_HOME", "AV Home", "CHARGER_DOCK_POINT", "AVMap", "1", 292, 396, 0),
 		makeMFPoi("KITCHEN_ENTRANCE", "Kitchen Entrance", "WAYPOINT", "AVMap", "1", 267, 289, 0),
@@ -476,6 +507,7 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("KITCHEN_DOCK", "Kitchen Dock", "AV_LOADING_POINT", "AVMap", "1", 245, 298, 0),
 		makeMFPoi("INSTITUTION_DOCK", "Institution Dock", "AV_LOADING_POINT", "AVMap", "1", 262, 102, 0),
 		makeMFPoi("PRISON_GATE", "Prison Gate", "GATE", "AVMap", "1", 232, 91, 0),
+		makeMFPoi("AV_MAP_EMERGENCY_POINT", "AV Map Emergency Point", "EMERGENCY_POINT", "AVMap", "1", 260, 200, 0),
 	}
 }
 
@@ -490,11 +522,9 @@ func defaultFloors() []Floor {
 
 func defaultElevatorPose(id string, frontX, frontY float32) Elevator {
 	return Elevator{
-		ElevatorID: id,
-		DoorType:   "single",
-		Optional:   false,
+		ElevatorID:           id,
+		DoorType:             "single",
+		Optional:             false,
 		FrontSchedulingPoses: []Pose{newPose(frontX, frontY, 0)},
 	}
 }
-
-

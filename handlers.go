@@ -579,9 +579,9 @@ func (r *MockRobot) handleGetElevator(w http.ResponseWriter, req *http.Request) 
 	}
 	// default
 	el := Elevator{
-		ElevatorID: id,
-		DoorType:   "single",
-		Optional:   false,
+		ElevatorID:           id,
+		DoorType:             "single",
+		Optional:             false,
 		FrontSchedulingPoses: []Pose{newPose(r.state.Pose.X+1.0, r.state.Pose.Y, 0)},
 	}
 	jsonResponse(w, el)
@@ -719,7 +719,7 @@ func (r *MockRobot) handleGetCargoOpResult(w http.ResponseWriter, req *http.Requ
 
 func (r *MockRobot) handleFrontCam(w http.ResponseWriter, req *http.Request) {
 	r.state.mu.RLock()
-	v := r.state.FrontCamQrID
+	v := r.currentVisibleFrontQrLocked()
 	r.state.mu.RUnlock()
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, v)
@@ -727,7 +727,7 @@ func (r *MockRobot) handleFrontCam(w http.ResponseWriter, req *http.Request) {
 
 func (r *MockRobot) handleBackCam(w http.ResponseWriter, req *http.Request) {
 	r.state.mu.RLock()
-	v := r.state.BackCamQrID
+	v := r.currentVisibleBackQrLocked()
 	r.state.mu.RUnlock()
 	w.Header().Set("Content-Type", "text/plain")
 	fmt.Fprint(w, v)
@@ -798,4 +798,3 @@ func (r *MockRobot) handleBackCamOff(w http.ResponseWriter, req *http.Request) {
 	log.Printf("MockRobot: back_cam off")
 	w.WriteHeader(http.StatusOK)
 }
-

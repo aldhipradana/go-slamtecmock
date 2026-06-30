@@ -134,10 +134,14 @@ func (r *MockRobot) tickMovement() {
 	step := defaultSpeedMPS * tickMS / 1000.0
 
 	if dist <= step {
+		arrivedTarget := s.MovementTarget
 		s.Pose.X = tx
 		s.Pose.Y = ty
-		if s.MovementTarget.YawSet {
-			s.Pose.Yaw = s.MovementTarget.Yaw
+		if arrivedTarget.YawSet {
+			s.Pose.Yaw = arrivedTarget.Yaw
+		}
+		if arrivedTarget != nil {
+			r.syncCurrentFloorLocked(arrivedTarget.Building, arrivedTarget.FloorID)
 		}
 		s.MovementTarget = nil
 		current.State.Status = StatusDone
@@ -482,6 +486,25 @@ func (r *MockRobot) findPoiByName(name string) *MultiFloorPoi {
 	return nil
 }
 
+func (r *MockRobot) findPoiByPose(x, y float32) *MultiFloorPoi {
+	const tolerance = 0.001
+	for i, p := range r.state.MultiFloorPois {
+		if math.Abs(float64(p.Pose.X-x)) <= tolerance && math.Abs(float64(p.Pose.Y-y)) <= tolerance {
+			return &r.state.MultiFloorPois[i]
+		}
+	}
+	return nil
+}
+
+func (r *MockRobot) syncCurrentFloorLocked(building, floorID string) {
+	if building != "" {
+		r.state.CurrentFloor.Building = building
+	}
+	if floorID != "" {
+		r.state.CurrentFloor.FloorID = floorID
+	}
+}
+
 func (r *MockRobot) currentVisibleFrontQrLocked() string {
 	if !r.state.FrontCamOn {
 		return ""
@@ -533,7 +556,7 @@ func (r *MockRobot) currentVisibleQrByPoseLocked() string {
 
 func isCameraVisiblePoiType(poiType string) bool {
 	switch poiType {
-	case "TROLLEY_POINT", "AV_LOADING_POINT", "LIFT_TROLLEY_POINT":
+	case "TROLLEY_POINT", "AV_LOADING_POINT", "LIFT_TROLLEY_POINT", "QR_POINT":
 		return true
 	default:
 		return false
@@ -605,6 +628,8 @@ func (r *MockRobot) createActionFromBody(body []byte) *ActionInfo {
 				ty := r.state.Pose.Y
 				tyaw := r.state.Pose.Yaw
 				hasYaw := false
+				targetBuilding := ""
+				targetFloor := ""
 
 				if v, ok := target["x"]; ok {
 					json.Unmarshal(v, &tx)
@@ -615,6 +640,27 @@ func (r *MockRobot) createActionFromBody(body []byte) *ActionInfo {
 				if v, ok := target["yaw"]; ok {
 					json.Unmarshal(v, &tyaw)
 					hasYaw = true
+				}
+				if v, ok := target["building"]; ok {
+					json.Unmarshal(v, &targetBuilding)
+				}
+				if v, ok := target["floor"]; ok {
+					json.Unmarshal(v, &targetFloor)
+				}
+				if poseRaw, ok := target["pose"]; ok {
+					var pose map[string]json.RawMessage
+					if err := json.Unmarshal(poseRaw, &pose); err == nil {
+						if v, ok := pose["x"]; ok {
+							json.Unmarshal(v, &tx)
+						}
+						if v, ok := pose["y"]; ok {
+							json.Unmarshal(v, &ty)
+						}
+						if v, ok := pose["yaw"]; ok {
+							json.Unmarshal(v, &tyaw)
+							hasYaw = true
+						}
+					}
 				}
 
 				if poiRaw, ok := target["poi_name"]; ok {
@@ -636,7 +682,24 @@ func (r *MockRobot) createActionFromBody(body []byte) *ActionInfo {
 					}
 				}
 
-				r.state.MovementTarget = &MovementTarget{X: tx, Y: ty, Yaw: tyaw, YawSet: hasYaw}
+				movementTarget := &MovementTarget{X: tx, Y: ty, Yaw: tyaw, YawSet: hasYaw}
+				if targetBuilding != "" || targetFloor != "" {
+					movementTarget.Building = targetBuilding
+					movementTarget.FloorID = targetFloor
+				}
+				if poiRaw, ok := target["poi_name"]; ok {
+					var poiName string
+					json.Unmarshal(poiRaw, &poiName)
+					if poi := r.findPoiByName(poiName); poi != nil {
+						movementTarget.Building = poi.Building
+						movementTarget.FloorID = poi.Floor
+					}
+				} else if poi := r.findPoiByPose(tx, ty); poi != nil {
+					movementTarget.Building = poi.Building
+					movementTarget.FloorID = poi.Floor
+				}
+
+				r.state.MovementTarget = movementTarget
 				r.state.GoingHome = false
 				r.state.DeliveryStage = "GOING_TO_TASK_POINT"
 				log.Printf("MockRobot: action %d – move_to (%.2f, %.2f)", info.ActionID, tx, ty)

@@ -28,6 +28,9 @@ type dashboardViewModel struct {
 	FrontVisibleQR      string
 	BackVisibleQR       string
 	Events              []RobotEvent
+	Pois                []MultiFloorPoi
+	PoiSearch           string
+	PoiTotalCount       int
 }
 
 var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.FuncMap{
@@ -231,6 +234,84 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
       font-size: .8rem;
       margin-top: 8px;
     }
+    .poi-panel {
+      margin-top: 20px;
+    }
+    .poi-toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .poi-search {
+      width: min(460px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      font: inherit;
+    }
+    .poi-search:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.45);
+      outline-offset: 2px;
+    }
+    .poi-count {
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .poi-table-wrap {
+      overflow: auto;
+      max-height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #111827;
+      color: #cbd5e1;
+      font-size: .76rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    td {
+      color: #e5e7eb;
+      font-size: .9rem;
+    }
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .poi-id {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      color: #bfdbfe;
+      white-space: nowrap;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: #cbd5e1;
+      background: rgba(255,255,255,0.03);
+      white-space: nowrap;
+    }
     @media (max-width: 900px) {
       .grid { grid-template-columns: 1fr; }
       .stats, .controls { grid-template-columns: 1fr; }
@@ -258,6 +339,10 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
       <div id="events" hx-get="/ui/partials/events" hx-trigger="load, every 1s" hx-swap="outerHTML">
         {{template "events" .}}
       </div>
+    </section>
+
+    <section>
+      {{template "pois" .}}
     </section>
   </main>
 </body>
@@ -371,6 +456,63 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
   </div>
 </div>
 {{end}}
+
+{{define "pois"}}
+<div id="pois" class="card poi-panel">
+  <div class="poi-toolbar">
+    <h2 class="section-title" style="margin:0;">Available POIs</h2>
+  </div>
+  <input
+    class="poi-search"
+    type="search"
+    name="q"
+    value="{{.PoiSearch}}"
+    placeholder="Search POI id, name, type, building, floor"
+    hx-get="/ui/partials/pois"
+    hx-trigger="keyup changed delay:180ms, search"
+    hx-target="#poi-results"
+    hx-swap="outerHTML">
+  {{template "poi-results" .}}
+</div>
+{{end}}
+
+{{define "poi-results"}}
+<div id="poi-results">
+  <div class="poi-count" style="margin-top:12px;">{{len .Pois}} of {{.PoiTotalCount}} shown</div>
+  <div class="poi-table-wrap" style="margin-top:12px;">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Building</th>
+          <th>Floor</th>
+          <th>Pose</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{if .Pois}}
+          {{range .Pois}}
+            <tr>
+              <td class="poi-id">{{.ID}}</td>
+              <td>{{.PoiName}}</td>
+              <td><span class="pill">{{.Type}}</span></td>
+              <td>{{.Building}}</td>
+              <td>{{.Floor}}</td>
+              <td>x={{printf "%.2f" .Pose.X}}, y={{printf "%.2f" .Pose.Y}}, yaw={{printf "%.2f" .Pose.Yaw}}</td>
+            </tr>
+          {{end}}
+        {{else}}
+          <tr>
+            <td colspan="6">No POIs match the current search.</td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
 `))
 
 func (r *MockRobot) handleUIRedirect(w http.ResponseWriter, req *http.Request) {
@@ -387,6 +529,10 @@ func (r *MockRobot) handleUISummary(w http.ResponseWriter, req *http.Request) {
 
 func (r *MockRobot) handleUIEvents(w http.ResponseWriter, req *http.Request) {
 	r.renderDashboardTemplate(w, "events")
+}
+
+func (r *MockRobot) handleUIPois(w http.ResponseWriter, req *http.Request) {
+	r.renderDashboardTemplateWithData(w, "poi-results", r.dashboardViewModel(req.URL.Query().Get("q")))
 }
 
 func (r *MockRobot) handleUISetCliff(w http.ResponseWriter, req *http.Request) {
@@ -424,16 +570,21 @@ func (r *MockRobot) handleUISetPhysicalEStop(w http.ResponseWriter, req *http.Re
 }
 
 func (r *MockRobot) renderDashboardTemplate(w http.ResponseWriter, name string) {
+	r.renderDashboardTemplateWithData(w, name, r.dashboardViewModel(""))
+}
+
+func (r *MockRobot) renderDashboardTemplateWithData(w http.ResponseWriter, name string, data dashboardViewModel) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := dashboardTemplates.ExecuteTemplate(w, name, r.dashboardViewModel()); err != nil {
+	if err := dashboardTemplates.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (r *MockRobot) dashboardViewModel() dashboardViewModel {
+func (r *MockRobot) dashboardViewModel(poiSearch string) dashboardViewModel {
 	r.state.mu.RLock()
 	defer r.state.mu.RUnlock()
 
+	poiSearch = strings.TrimSpace(poiSearch)
 	view := dashboardViewModel{
 		GeneratedAt:         time.Now().Format(time.RFC3339),
 		Pose:                r.state.Pose,
@@ -450,6 +601,9 @@ func (r *MockRobot) dashboardViewModel() dashboardViewModel {
 		FrontVisibleQR:      r.currentVisibleFrontQrLocked(),
 		BackVisibleQR:       r.currentVisibleBackQrLocked(),
 		Events:              append([]RobotEvent(nil), r.state.Events...),
+		Pois:                filterPois(r.state.MultiFloorPois, poiSearch),
+		PoiSearch:           poiSearch,
+		PoiTotalCount:       len(r.state.MultiFloorPois),
 	}
 
 	if r.state.CurrentAction != nil {
@@ -469,4 +623,28 @@ func (r *MockRobot) dashboardViewModel() dashboardViewModel {
 	}
 
 	return view
+}
+
+func filterPois(pois []MultiFloorPoi, search string) []MultiFloorPoi {
+	if strings.TrimSpace(search) == "" {
+		return append([]MultiFloorPoi(nil), pois...)
+	}
+
+	needle := strings.ToLower(search)
+	filtered := make([]MultiFloorPoi, 0, len(pois))
+	for _, poi := range pois {
+		haystack := strings.ToLower(strings.Join([]string{
+			poi.ID,
+			poi.PoiName,
+			poi.DisplayName,
+			poi.Type,
+			poi.Building,
+			poi.Floor,
+			poi.Group,
+		}, " "))
+		if strings.Contains(haystack, needle) {
+			filtered = append(filtered, poi)
+		}
+	}
+	return filtered
 }

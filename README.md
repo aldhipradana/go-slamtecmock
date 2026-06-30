@@ -198,6 +198,8 @@ The mock passes the initial reachability check (`GET /api/core/system/v1/power/s
 
 These endpoints are served on the same port as the Slamtec API (they are part of the mock sensor service, not the real robot's sensor daemon).
 
+Front-camera QR visibility is pose-based and filtered by the mock's current building/floor. When a move targets a named POI, that floor context is updated automatically on arrival so cross-site flows can detect the expected QR instead of returning an empty value because of stale floor state.
+
 | Method | Path | Response |
 |---|---|---|
 | `GET` | `/front_cam` | Plain-text QR tag ID detected by front camera, or empty |
@@ -240,6 +242,7 @@ The simulation runs at **5 ms per tick** (200 Hz). All state changes (movement, 
 - Speed: **15 m/s** (fast for simulation; mimics real-time testing without waiting).
 - Each tick the robot advances toward `MovementTarget` by `speed × tickSec` metres.
 - On arrival the action transitions to `status=DONE, result=SUCCESS`.
+- For named-POI navigation (`target.poi_name`), arrival also syncs `CurrentFloor` to the POI's building/floor.
 
 ### Battery
 
@@ -390,6 +393,8 @@ The mock starts with a full POI dataset covering three buildings:
 | `INSTITUTION_GROUND_VEHICLE_1..4` | Ground Vehicle 1–4 | AV_LOADING_POINT |
 | `INSTITUTION_GROUND_LIFT_1..4` | Ground Lift 1–4 | LIFT_TROLLEY_POINT |
 | `CARGO_LIFT_ENTRY_GROUND` | Cargo Lift Entry Ground | LIFT_WAITING_POINT |
+| `INSTITUTION_GROUND_LIFT_DOOR_QR_POINT` | Ground Lift Door QR Point | QR_POINT |
+| `INSTITUTION_GROUND_LIFT_WALL_QR_POINT` | Ground Lift Wall QR Point | QR_POINT |
 
 ### Institution (floor 5 – Level 5)
 
@@ -399,6 +404,8 @@ The mock starts with a full POI dataset covering three buildings:
 | `PORT_INSTITUTION_TOP_LOADING_1..4` | Port Top Loading 1–4 | INTERSECTION |
 | `INSTITUTION_TOP_LIFT_1..4` | Top Lift 1–4 | LIFT_TROLLEY_POINT |
 | `CARGO_LIFT_EXIT_LEVEL5` | Cargo Lift Exit Level 5 | LIFT_WAITING_POINT |
+| `INSTITUTION_TOP_LIFT_DOOR_QR_POINT` | Top Lift Door QR Point | QR_POINT |
+| `INSTITUTION_TOP_LIFT_WALL_QR_POINT` | Top Lift Wall QR Point | QR_POINT |
 | `DESTINATION_AREA` | Destination Area | INTERSECTION |
 | `LEVEL5_CHARGER` | Level 5 Robot Charger | CHARGER_DOCK_POINT |
 
@@ -493,4 +500,3 @@ curl http://localhost:1448/api/platform/v1/events
 ```
 
 Common event types: `navigation.arrived`, `navigation.aborted`, `charging.docked`, `system.power_low`, `system.critical_low_battery`, `system.emergency_stop`, `docking.complete`, `jack.up`, `jack.down`, `floor.updated`, `delivery.start_pickup`.
-

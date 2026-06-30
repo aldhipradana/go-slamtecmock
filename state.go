@@ -20,10 +20,12 @@ func newPose(x, y, yaw float32) Pose {
 }
 
 type MovementTarget struct {
-	X      float32
-	Y      float32
-	Yaw    float32
-	YawSet bool
+	X        float32
+	Y        float32
+	Yaw      float32
+	YawSet   bool
+	Building string
+	FloorID  string
 }
 
 // DockingPhaseEnum is the state of the two-phase MoveToTag docking process.
@@ -389,10 +391,12 @@ func posePtr(x, y, yaw float32) *Pose {
 }
 
 func defaultArtifactPois() []ArtifactPoi {
-	return []ArtifactPoi{
-		makeArtifactPoi("poi-lobby", "Lobby", "navigation", 5, 0, 0),
-		makeArtifactPoi("poi-dock", "Dock", "PARKING", 0, 0, 0),
+	multiFloorPois := defaultMultiFloorPois()
+	pois := make([]ArtifactPoi, 0, len(multiFloorPois))
+	for _, poi := range multiFloorPois {
+		pois = append(pois, makeArtifactPoi(poi.ID, poi.ID, poi.Type, poi.Pose.X, poi.Pose.Y, poi.Pose.Yaw))
 	}
+	return pois
 }
 
 func makeArtifactPoi(id, name, typ string, x, y, yaw float32) ArtifactPoi {
@@ -424,7 +428,7 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		// Kitchen layout
 		makeMFPoi("KITCHEN_HOME_1", "Kitchen Home", "INTERSECTION", "Kitchen", "1", 457, 282, 0),
 		makeMFPoi("KITCHEN_HOME_2", "Kitchen Home 2", "INTERSECTION", "Kitchen", "1", 459, 222, 0),
-		makeMFPoi("KITCHEN_VEHICLE_PORT_1", "Kitchen Vehicle Port 1", "INTERSECTION", "Kitchen", "1", 441, 199, 0),
+		makeMFPoi("KITCHEN_VEHICLE_PORT", "Kitchen Vehicle Port 1", "INTERSECTION", "Kitchen", "1", 441, 199, 0),
 		makeMFPoi("KITCHEN_LOADING_1_APPROACH", "Front of Kitchen Loading 1", "INTERSECTION", "Kitchen", "1", 505, 279, 0),
 		makeMFPoi("KITCHEN_LOADING_1", "Kitchen Loading 1", "TROLLEY_POINT", "Kitchen", "1", 533, 277, 0),
 		makeMFPoi("KITCHEN_LOADING_2_APPROACH", "Front of Kitchen Loading 2", "INTERSECTION", "Kitchen", "1", 414, 280, 0),
@@ -445,6 +449,7 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("KITCHEN_EMERGENCY_POINT", "Kitchen Emergency Point", "EMERGENCY_POINT", "Kitchen", "1", 300, 350, 0),
 		// Institution Ground
 		makeMFPoi("INSTITUTION_GROUND_HOME", "Ground Home", "CHARGER_DOCK_POINT", "Institution", "1", 507, 361, 0),
+		makeMFPoi("START_POINT", "START POINT", "CHARGER_DOCK_POINT", "Institution", "1", 507, 361, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_1_APPROACH", "Front of Ground Loading 1", "INTERSECTION", "Institution", "1", 726, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_1", "Ground Loading 1", "TROLLEY_POINT", "Institution", "1", 726, 122, 0),
 		makeMFPoi("INSTITUTION_GROUND_LOADING_2_APPROACH", "Front of Ground Loading 2", "INTERSECTION", "Institution", "1", 633, 155, 0),
@@ -457,7 +462,8 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_2", "Port Ground Loading 2", "INTERSECTION", "Institution", "1", 632, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_3", "Port Ground Loading 3", "INTERSECTION", "Institution", "1", 543, 187, 0),
 		makeMFPoi("PORT_INSTITUTION_GROUND_LOADING_4", "Port Ground Loading 4", "INTERSECTION", "Institution", "1", 459, 187, 0),
-		makeMFPoi("PORT_INSTITUTION_GROUND_VEHICLE_1", "Port Ground Vehicle 1", "INTERSECTION", "Institution", "1", 682, 187, 0),
+		makeMFPoi("INSTITUTION_VEHICLE_PORT", "Port Ground Vehicle 1", "INTERSECTION", "Institution", "1", 682, 187, 0),
+		makeMFPoi("INSTITUTION_VEHICLE_PORT_EXIT", "Ground Vehicle Port Exit", "INTERSECTION", "Institution", "1", 682, 155, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_1_APPROACH", "Front of Ground Vehicle 1", "INTERSECTION", "Institution", "1", 682, 397, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_1", "Ground Vehicle 1", "AV_LOADING_POINT", "Institution", "1", 682, 421, 0),
 		makeMFPoi("INSTITUTION_GROUND_VEHICLE_2_APPROACH", "Front of Ground Vehicle 2", "INTERSECTION", "Institution", "1", 682, 337, 0),
@@ -475,6 +481,8 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("INSTITUTION_GROUND_LIFT_4_APPROACH", "Front of Ground Lift 4", "INTERSECTION", "Institution", "1", 215, 247, 0),
 		makeMFPoi("INSTITUTION_GROUND_LIFT_4", "Ground Lift 4", "LIFT_TROLLEY_POINT", "Institution", "1", 211, 215, 0),
 		makeMFPoi("CARGO_LIFT_ENTRY_GROUND", "Cargo Lift Entry Ground", "LIFT_WAITING_POINT", "Institution", "1", 231, 361, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_DOOR_QR_POINT", "Ground Lift Door QR Point", "QR_POINT", "Institution", "1", 231, 322, 0),
+		makeMFPoi("INSTITUTION_GROUND_LIFT_WALL_QR_POINT", "Ground Lift Wall QR Point", "QR_POINT", "Institution", "1", 231, 300, 0),
 		makeMFPoi("GROUND_EMERGENCY_POINT", "Ground Emergency Point", "EMERGENCY_POINT", "Institution", "1", 400, 300, 0),
 		// Institution Level 5
 		makeMFPoi("INSTITUTION_TOP_LOADING_1_APPROACH", "Front of Top Loading 1", "INTERSECTION", "Institution", "5", 1107, 185, 0),
@@ -498,6 +506,8 @@ func defaultMultiFloorPois() []MultiFloorPoi {
 		makeMFPoi("INSTITUTION_TOP_LIFT_4_APPROACH", "Front of Top Lift 4", "INTERSECTION", "Institution", "5", 494, 363, 0),
 		makeMFPoi("INSTITUTION_TOP_LIFT_4", "Top Lift 4", "LIFT_TROLLEY_POINT", "Institution", "5", 466, 412, 0),
 		makeMFPoi("CARGO_LIFT_EXIT_LEVEL5", "Cargo Lift Exit Level 5", "LIFT_WAITING_POINT", "Institution", "5", 525, 308, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_DOOR_QR_POINT", "Top Lift Door QR Point", "QR_POINT", "Institution", "5", 525, 332, 0),
+		makeMFPoi("INSTITUTION_TOP_LIFT_WALL_QR_POINT", "Top Lift Wall QR Point", "QR_POINT", "Institution", "5", 525, 356, 0),
 		makeMFPoi("DESTINATION_AREA", "Destination Area", "INTERSECTION", "Institution", "5", 390, 259, 0),
 		makeMFPoi("LEVEL5_CHARGER", "Level 5 Robot Charger", "CHARGER_DOCK_POINT", "Institution", "5", 421, 38, 0),
 		makeMFPoi("LEVEL5_EMERGENCY_POINT", "Level 5 Emergency Point", "EMERGENCY_POINT", "Institution", "5", 700, 400, 0),

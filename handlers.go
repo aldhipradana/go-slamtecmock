@@ -48,6 +48,7 @@ func (r *MockRobot) buildRouter() http.Handler {
 	mux.Get("/ui", r.handleUIDashboard)
 	mux.Get("/ui/partials/summary", r.handleUISummary)
 	mux.Get("/ui/partials/events", r.handleUIEvents)
+	mux.Get("/ui/partials/pois", r.handleUIPois)
 	mux.Post("/ui/actions/cliff/{mode}", r.handleUISetCliff)
 	mux.Post("/ui/actions/physical-estop/{mode}", r.handleUISetPhysicalEStop)
 

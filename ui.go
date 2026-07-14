@@ -27,10 +27,20 @@ type dashboardViewModel struct {
 	BackCamOn           bool
 	FrontVisibleQR      string
 	BackVisibleQR       string
+	LiftDoorQrs         []liftDoorQrView
 	Events              []RobotEvent
 	Pois                []MultiFloorPoi
 	PoiSearch           string
 	PoiTotalCount       int
+}
+
+type liftDoorQrView struct {
+	ID            string
+	Name          string
+	Building      string
+	Floor         string
+	Visible       bool
+	CurrentlyRead bool
 }
 
 var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.FuncMap{
@@ -186,6 +196,9 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
+    .control-group.wide {
+      grid-column: 1 / -1;
+    }
     .control-group {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -199,6 +212,39 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+    .qr-status-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .qr-status-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+    .qr-status-row:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
+    .qr-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .pill.ok-pill {
+      color: #86efac;
+      border-color: rgba(22, 163, 74, .45);
+      background: rgba(22, 163, 74, .12);
+    }
+    .pill.danger-pill {
+      color: #fca5a5;
+      border-color: rgba(220, 38, 38, .45);
+      background: rgba(220, 38, 38, .12);
     }
     button {
       border: none;
@@ -431,6 +477,31 @@ var dashboardTemplates = template.Must(template.New("dashboard").Funcs(template.
         <button class="safe" hx-post="/ui/actions/physical-estop/release" hx-target="#summary" hx-swap="outerHTML">Release button</button>
       </div>
     </div>
+    <div class="control-group wide">
+      <h3>Lift door QR</h3>
+      <div class="qr-status-list">
+        {{range .LiftDoorQrs}}
+          <div class="qr-status-row">
+            <div>
+              <div class="label">{{.Name}} · {{.Building}}/{{.Floor}}</div>
+              <div class="poi-id">{{.ID}}</div>
+              <div class="qr-badges">
+                <span class="pill {{if .Visible}}ok-pill{{else}}danger-pill{{end}}">
+                  {{if .Visible}}QR APPEARING{{else}}QR DISAPPEARED{{end}}
+                </span>
+                <span class="pill {{if .CurrentlyRead}}ok-pill{{else}}danger-pill{{end}}">
+                  {{if .CurrentlyRead}}FRONT CAMERA READS IT{{else}}FRONT CAMERA EMPTY/OTHER{{end}}
+                </span>
+              </div>
+            </div>
+            <div class="buttons">
+              <button class="safe" hx-post="/ui/actions/lift-door-qr/{{.ID}}/appear" hx-target="#summary" hx-swap="outerHTML">Appear</button>
+              <button class="danger" hx-post="/ui/actions/lift-door-qr/{{.ID}}/disappear" hx-target="#summary" hx-swap="outerHTML">Disappear</button>
+            </div>
+          </div>
+        {{end}}
+      </div>
+    </div>
   </div>
 </div>
 {{end}}
@@ -569,6 +640,33 @@ func (r *MockRobot) handleUISetPhysicalEStop(w http.ResponseWriter, req *http.Re
 	r.handleUISummary(w, req)
 }
 
+func (r *MockRobot) handleUISetLiftDoorQr(w http.ResponseWriter, req *http.Request) {
+	qrID := chi.URLParam(req, "qrID")
+	mode := strings.ToLower(chi.URLParam(req, "mode"))
+
+	r.state.mu.Lock()
+	switch mode {
+	case "appear", "show", "visible":
+		if !r.setQrVisibleLocked(qrID, true, "dashboard UI") {
+			r.state.mu.Unlock()
+			http.Error(w, "unknown lift door QR", http.StatusBadRequest)
+			return
+		}
+	case "disappear", "hide", "gone":
+		if !r.setQrVisibleLocked(qrID, false, "dashboard UI") {
+			r.state.mu.Unlock()
+			http.Error(w, "unknown lift door QR", http.StatusBadRequest)
+			return
+		}
+	default:
+		r.state.mu.Unlock()
+		http.Error(w, "unknown QR mode", http.StatusBadRequest)
+		return
+	}
+	r.state.mu.Unlock()
+	r.handleUISummary(w, req)
+}
+
 func (r *MockRobot) renderDashboardTemplate(w http.ResponseWriter, name string) {
 	r.renderDashboardTemplateWithData(w, name, r.dashboardViewModel(""))
 }
@@ -585,6 +683,7 @@ func (r *MockRobot) dashboardViewModel(poiSearch string) dashboardViewModel {
 	defer r.state.mu.RUnlock()
 
 	poiSearch = strings.TrimSpace(poiSearch)
+	frontVisibleQR := r.currentVisibleFrontQrLocked()
 	view := dashboardViewModel{
 		GeneratedAt:         time.Now().Format(time.RFC3339),
 		Pose:                r.state.Pose,
@@ -598,8 +697,9 @@ func (r *MockRobot) dashboardViewModel(poiSearch string) dashboardViewModel {
 		LidarOn:             r.state.LidarOn,
 		FrontCamOn:          r.state.FrontCamOn,
 		BackCamOn:           r.state.BackCamOn,
-		FrontVisibleQR:      r.currentVisibleFrontQrLocked(),
+		FrontVisibleQR:      frontVisibleQR,
 		BackVisibleQR:       r.currentVisibleBackQrLocked(),
+		LiftDoorQrs:         r.liftDoorQrViewsLocked(frontVisibleQR),
 		Events:              append([]RobotEvent(nil), r.state.Events...),
 		Pois:                filterPois(r.state.MultiFloorPois, poiSearch),
 		PoiSearch:           poiSearch,
@@ -623,6 +723,24 @@ func (r *MockRobot) dashboardViewModel(poiSearch string) dashboardViewModel {
 	}
 
 	return view
+}
+
+func (r *MockRobot) liftDoorQrViewsLocked(frontVisibleQR string) []liftDoorQrView {
+	views := []liftDoorQrView{}
+	for _, poi := range r.state.MultiFloorPois {
+		if !isLiftDoorQrID(poi.ID) {
+			continue
+		}
+		views = append(views, liftDoorQrView{
+			ID:            poi.ID,
+			Name:          poi.PoiName,
+			Building:      poi.Building,
+			Floor:         poi.Floor,
+			Visible:       !r.isQrHiddenLocked(poi.ID),
+			CurrentlyRead: frontVisibleQR == poi.ID,
+		})
+	}
+	return views
 }
 
 func filterPois(pois []MultiFloorPoi, search string) []MultiFloorPoi {

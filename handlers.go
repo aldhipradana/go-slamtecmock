@@ -51,6 +51,7 @@ func (r *MockRobot) buildRouter() http.Handler {
 	mux.Get("/ui/partials/pois", r.handleUIPois)
 	mux.Post("/ui/actions/cliff/{mode}", r.handleUISetCliff)
 	mux.Post("/ui/actions/physical-estop/{mode}", r.handleUISetPhysicalEStop)
+	mux.Post("/ui/actions/lift-door-qr/{qrID}/{mode}", r.handleUISetLiftDoorQr)
 
 	// 3.1 System Resources
 	mux.Get("/api/core/system/v1/power/status", r.handleGetPowerStatus)

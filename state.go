@@ -247,6 +247,7 @@ type RobotState struct {
 	CliffSafe    bool
 	FrontCamQrID string
 	BackCamQrID  string
+	HiddenQrIDs  map[string]bool
 
 	// pose
 	Pose Pose
@@ -368,6 +369,7 @@ func defaultRobotState() *RobotState {
 		Events:                []RobotEvent{},
 		DeliveryStage:         "IDLE",
 		TaskExecutionEnabled:  true,
+		HiddenQrIDs:           map[string]bool{},
 		DeliverySettings: map[string]string{
 			"food_pickup_timeout": "60",
 			"low_battery_action":  "go_home",

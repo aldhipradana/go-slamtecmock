@@ -535,6 +535,9 @@ func (r *MockRobot) currentVisibleQrByPoseLocked() string {
 		if !isCameraVisiblePoiType(poi.Type) {
 			continue
 		}
+		if r.isQrHiddenLocked(poi.ID) {
+			continue
+		}
 		if currentBuilding != "" && poi.Building != currentBuilding {
 			continue
 		}
@@ -545,13 +548,49 @@ func (r *MockRobot) currentVisibleQrByPoseLocked() string {
 		dx := poi.Pose.X - r.state.Pose.X
 		dy := poi.Pose.Y - r.state.Pose.Y
 		distance := float32(math.Sqrt(float64(dx*dx + dy*dy)))
-		if distance <= cameraQrDetectRadius && distance < bestDistance {
+		if distance <= cameraQrDetectRadiusForPoiType(poi.Type) && distance < bestDistance {
 			bestDistance = distance
 			bestQr = poi.ID
 		}
 	}
 
 	return bestQr
+}
+
+func (r *MockRobot) setQrVisibleLocked(qrID string, visible bool, source string) bool {
+	if !isLiftDoorQrID(qrID) || !r.hasMultiFloorPoiLocked(qrID) {
+		return false
+	}
+	if r.state.HiddenQrIDs == nil {
+		r.state.HiddenQrIDs = map[string]bool{}
+	}
+	if visible {
+		delete(r.state.HiddenQrIDs, qrID)
+		r.addEvent("sensor.qr_appeared", "Lift door QR appeared via "+source+": "+qrID)
+		log.Printf("MockRobot: lift door QR appeared via %s: %s", source, qrID)
+		return true
+	}
+	r.state.HiddenQrIDs[qrID] = true
+	r.addEvent("sensor.qr_disappeared", "Lift door QR disappeared via "+source+": "+qrID)
+	log.Printf("MockRobot: lift door QR disappeared via %s: %s", source, qrID)
+	return true
+}
+
+func (r *MockRobot) isQrHiddenLocked(qrID string) bool {
+	return r.state.HiddenQrIDs != nil && r.state.HiddenQrIDs[qrID]
+}
+
+func (r *MockRobot) hasMultiFloorPoiLocked(qrID string) bool {
+	for _, poi := range r.state.MultiFloorPois {
+		if poi.ID == qrID {
+			return true
+		}
+	}
+	return false
+}
+
+func isLiftDoorQrID(qrID string) bool {
+	return strings.Contains(qrID, "LIFT_DOOR_QR_POINT")
 }
 
 func isCameraVisiblePoiType(poiType string) bool {
@@ -561,6 +600,13 @@ func isCameraVisiblePoiType(poiType string) bool {
 	default:
 		return false
 	}
+}
+
+func cameraQrDetectRadiusForPoiType(poiType string) float32 {
+	if poiType == "QR_POINT" {
+		return 10.0
+	}
+	return cameraQrDetectRadius
 }
 
 func (r *MockRobot) applyGoHome(info *ActionInfo) {
